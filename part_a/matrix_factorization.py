@@ -11,6 +11,7 @@ def svd_reconstruct(matrix, k):
     :param matrix: 2D sparse matrix
     :param k: int
     :return: 2D matrix
+
     """
     # First, you need to fill in the missing values (NaN) to perform SVD.
     # Fill in the missing values using the average on the current item.
