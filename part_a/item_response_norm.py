@@ -3,6 +3,7 @@ from utils import *
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def sigmoid(x):
     """ Apply sigmoid function.
     """
@@ -24,10 +25,10 @@ def neg_log_likelihood(data, theta, beta):
     for i, q in enumerate(data["question_id"]):
         u = data["user_id"][i]
         c = data["is_correct"][i]
-        x = (theta[u] - beta[q]).sum()
+        x = theta[u] - beta[q]
         p_a = sigmoid(x)
-        p_ia = sigmoid(1 - x)
-        loglike += c*np.log(p_a) + (1 - c)*np.log(p_ia)
+        p_ia = 1 - sigmoid(x)
+        loglike += c * np.log(p_a) + (1 - c) * np.log(p_ia)
     return -loglike
 
 
@@ -52,11 +53,9 @@ def update_theta_beta(data, lr, theta, beta):
     num_users = np.max(data['user_id']) + 1
     num_questions = np.max(data['question_id']) + 1
 
-    # Initialize gradients
     grad_theta = np.zeros(num_users)
     grad_beta = np.zeros(num_questions)
 
-    # Compute gradients
     for i in range(len(data['user_id'])):
         u = data['user_id'][i]
         q = data['question_id'][i]
@@ -64,12 +63,11 @@ def update_theta_beta(data, lr, theta, beta):
         x = theta[u] - beta[q]
         p_a = sigmoid(x)
 
-        grad_theta[u] += (c - p_a) * (1 - p_a)
-
-        grad_beta[q] -= (c - p_a) * (1 - p_a)
+        grad_theta[u] += c - p_a
+        grad_beta[q] -= c - p_a
 
     new_theta = theta + lr * grad_theta
-    new_beta = beta - lr * grad_beta
+    new_beta = beta + lr * grad_beta
 
     return new_theta, new_beta
 
@@ -93,16 +91,21 @@ def irt(data, val_data, lr, iterations):
     beta = np.random.randn(num_questions)
 
     val_acc_lst = []
+    neg_lld_lst = []
+    neg_vlld_lst =[]
 
     for i in range(iterations):
+        neg_vlld = neg_log_likelihood(val_data, theta, beta)
         neg_lld = neg_log_likelihood(data, theta=theta, beta=beta)
         score = evaluate(data=val_data, theta=theta, beta=beta)
         val_acc_lst.append(score)
+        neg_lld_lst.append(neg_lld)
+        neg_vlld_lst.append(neg_vlld)
         print("NLLK: {} \t Score: {}".format(neg_lld, score))
         theta, beta = update_theta_beta(data, lr, theta, beta)
 
     # TODO: You may change the return values to achieve what you want.
-    return theta, beta, val_acc_lst
+    return theta, beta, val_acc_lst,neg_lld_lst, neg_vlld_lst
 
 
 def evaluate(data, theta, beta):
@@ -121,7 +124,7 @@ def evaluate(data, theta, beta):
         p_a = sigmoid(x)
         pred.append(p_a >= 0.5)
     return np.sum((data["is_correct"] == np.array(pred))) \
-           / len(data["is_correct"])
+        / len(data["is_correct"])
 
 
 def main():
@@ -131,54 +134,41 @@ def main():
     val_data = load_valid_csv("../data")
     test_data = load_public_test_csv("../data")
     #####################################################################
-    learning_rates = [0.005]
-    iterations = [24]
+    learning_rates = [0.01, 0.001, 0.1]
+    iterations = [30]
 
     best_lr = None
     best_iterations = None
     best_val_acc = 0
-    probs = []
-    thetas = []
     for lr in learning_rates:
         for it in iterations:
             print("Tuning hyperparameters: lr={}, iterations={}".format(lr, it))
-            theta, beta, val_acc_lst = irt(train_data, val_data, lr, it)
+            theta, beta, val_acc_lst, neg_ll_lst, neg_vll_lst = irt(train_data, val_data, lr, it)
             val_acc = val_acc_lst[-1]
-
+            plt.plot(list(range(len(neg_ll_lst))), neg_ll_lst, marker='o')
+            plt.title('train log likely hood vs. iterations lr={}'.format(lr))
+            plt.xlabel('iterations')
+            plt.ylabel('train likely hood')
+            plt.grid(True)
+            plt.show()
+            plt.plot(list(range(len(neg_vll_lst))), neg_vll_lst, marker='o')
+            plt.title('valid log likely hood vs. iterations lr={}'.format(lr))
+            plt.xlabel('iterations')
+            plt.ylabel('valid likely hood')
+            plt.grid(True)
+            plt.show()
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 best_lr = lr
                 best_iterations = it
 
     # Plot probability against theta
-    plt.plot(probs, marker='o', linestyle='-')
-    plt.xlabel('Theta')
-    plt.ylabel('Probability')
-    plt.title('Probability vs. Theta')
-    plt.grid(True)
-    plt.show()
     print("Best hyperparameters: lr={}, iterations={}".format(best_lr, best_iterations))
 
-    theta, beta, _ = irt(train_data, val_data, best_lr, best_iterations)
+    theta, beta, _, _, _ = irt(train_data, val_data, best_lr, best_iterations)
 
     test_acc = evaluate(test_data, theta, beta)
     print("Test Accuracy:", test_acc)
-    # Tune learning rate and number of iterations. With the implemented #
-    # code, report the validation and test accuracy.                    #
-    #####################################################################
-    pass
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
-
-    #####################################################################
-    # TODO:                                                             #
-    # Implement part (d)                                                #
-    #####################################################################
-    pass
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
 
 
 if __name__ == "__main__":
