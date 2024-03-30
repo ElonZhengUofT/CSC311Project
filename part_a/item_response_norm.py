@@ -1,7 +1,6 @@
 from utils import *
+
 import numpy as np
-import pandas as pd
-from gensim.models import Word2Vec
 import matplotlib.pyplot as plt
 
 def sigmoid(x):
@@ -10,43 +9,7 @@ def sigmoid(x):
     return np.exp(x) / (1 + np.exp(x))
 
 
-def initialize_parameters(data):
-    """Compute the rate of correctness for each question and user.
-
-    :param data: A dictionary {user_id: list, question_id: list, is_correct: list}
-    :return: Tuple (theta, beta)
-    """
-    # Initialize dictionaries to store counts of correct answers and total attempts for each question and user
-    question_correct_counts = {}
-    question_total_counts = {}
-    user_correct_counts = {}
-    user_total_counts = {}
-
-    # Iterate over the data to count correct answers and total attempts
-    for i in range(len(data['user_id'])):
-        user_id = data['user_id'][i]
-        question_id = data['question_id'][i]
-        is_correct = data['is_correct'][i]
-
-        # Update question counts
-        question_correct_counts[question_id] = question_correct_counts.get(question_id, 0) + is_correct
-        question_total_counts[question_id] = question_total_counts.get(question_id, 0) + 1
-
-        # Update user counts
-        user_correct_counts[user_id] = user_correct_counts.get(user_id, 0) + is_correct
-        user_total_counts[user_id] = user_total_counts.get(user_id, 0) + 1
-
-    # Compute correctness rates for questions and users
-    question_rates = {q_id: question_correct_counts[q_id] / question_total_counts[q_id] for q_id in question_correct_counts}
-    user_rates = {u_id: user_correct_counts[u_id] / user_total_counts[u_id] for u_id in user_correct_counts}
-
-    theta = np.array([user_rates[u_id] for u_id in user_rates])
-    beta = np.array([question_rates[q_id] for q_id in question_rates])
-
-    return theta, beta
-
-
-def neg_log_likelihood(data, theta, beta, topic):
+def neg_log_likelihood(data, theta, beta):
     """ Compute the negative log-likelihood.
 
     You may optionally replace the function arguments to receive a matrix.
@@ -61,14 +24,14 @@ def neg_log_likelihood(data, theta, beta, topic):
     for i, q in enumerate(data["question_id"]):
         u = data["user_id"][i]
         c = data["is_correct"][i]
-        x = (theta[u] - topic[q] - beta[q])
+        x = (theta[u] - beta[q]).sum()
         p_a = sigmoid(x)
         p_ia = sigmoid(1 - x)
         loglike += c*np.log(p_a) + (1 - c)*np.log(p_ia)
     return -loglike
 
 
-def update_theta_beta(data, lr, theta, beta, topic):
+def update_theta_beta(data, lr, theta, beta):
     """ Update theta and beta using gradient descent.
 
     You are using alternating gradient descent. Your update should look:
@@ -92,14 +55,13 @@ def update_theta_beta(data, lr, theta, beta, topic):
     # Initialize gradients
     grad_theta = np.zeros(num_users)
     grad_beta = np.zeros(num_questions)
-    grad_topic = np.zeros(num_questions)
 
     # Compute gradients
     for i in range(len(data['user_id'])):
         u = data['user_id'][i]
         q = data['question_id'][i]
         c = data['is_correct'][i]
-        x = (theta[u] - topic[q] - beta[q])
+        x = theta[u] - beta[q]
         p_a = sigmoid(x)
 
         grad_theta[u] += (c - p_a) * (1 - p_a)
@@ -109,7 +71,7 @@ def update_theta_beta(data, lr, theta, beta, topic):
     new_theta = theta + lr * grad_theta
     new_beta = beta - lr * grad_beta
 
-    return new_theta, new_beta, topic
+    return new_theta, new_beta
 
 
 def irt(data, val_data, lr, iterations):
@@ -125,32 +87,19 @@ def irt(data, val_data, lr, iterations):
     :param iterations: int
     :return: (theta, beta, val_acc_lst)
     """
-    df = pd.read_csv('../data/subject_meta.csv')
-    word2vec_model = Word2Vec(sentences=[name.split() for name in df["name"]],
-                              vector_size=1, window=10, min_count=1, workers=4)
-    topic_values = [word2vec_model.wv[name.split()].mean(axis=0) for name in df["name"]]
-    print(topic_values)
-    topic_values = np.concatenate(topic_values)
-    theta, beta = initialize_parameters(data)
-    question_meta_df = pd.read_csv('../data/question_meta.csv')
-    question_meta_df = question_meta_df.sort_values(by="question_id")
-    # Initialize dictionary to store the sum of subject topic values for each question
-    question_meta = []
-
-    # Iterate over rows of the DataFrame
-    for index, row in question_meta_df.iterrows():
-        subject_topics = eval(row['subject_id'])  # Convert string representation of list to actual list
-        sum_values = sum(topic_values[i] for i in subject_topics)
-        question_meta.append(sum_values)
+    num_users = len(np.unique(data['user_id']))
+    num_questions = len(np.unique(data['question_id']))
+    theta = np.random.randn(num_users)
+    beta = np.random.randn(num_questions)
 
     val_acc_lst = []
 
     for i in range(iterations):
-        neg_lld = neg_log_likelihood(data, theta=theta, beta=beta, topic=question_meta)
+        neg_lld = neg_log_likelihood(data, theta=theta, beta=beta)
         score = evaluate(data=val_data, theta=theta, beta=beta)
         val_acc_lst.append(score)
         print("NLLK: {} \t Score: {}".format(neg_lld, score))
-        theta, beta, topic_values = update_theta_beta(data, lr, theta, beta, question_meta)
+        theta, beta = update_theta_beta(data, lr, theta, beta)
 
     # TODO: You may change the return values to achieve what you want.
     return theta, beta, val_acc_lst
@@ -177,16 +126,13 @@ def evaluate(data, theta, beta):
 
 def main():
     train_data = load_train_csv("../data")
-    c = train_data["is_correct"]
-    mean_value = np.mean(c)
-    std_dev = np.std(c)
     # You may optionally use the sparse matrix.
     sparse_matrix = load_train_sparse("../data")
     val_data = load_valid_csv("../data")
     test_data = load_public_test_csv("../data")
     #####################################################################
     learning_rates = [0.005]
-    iterations = [100]
+    iterations = [24]
 
     best_lr = None
     best_iterations = None
