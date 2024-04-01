@@ -2,6 +2,7 @@ from utils import *
 from scipy.linalg import sqrtm
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def svd_reconstruct(matrix, k):
@@ -189,6 +190,12 @@ def main():
             best_acc_als = acc
             best_k_als = k
     print("Best k: {} with accuracy: {}".format(best_k_als, best_acc_als))
+
+    # With your chosen hyperparameters, plot the training and validation squared-error
+    # losses as a function of iteration. Also, report the validation accuracy and test accuracies
+    # for your final model.
+
+
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
