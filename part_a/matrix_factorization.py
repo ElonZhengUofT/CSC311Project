@@ -194,6 +194,36 @@ def main():
     # With your chosen hyperparameters, plot the training and validation squared-error
     # losses as a function of iteration. Also, report the validation accuracy and test accuracies
     # for your final model.
+    def plot_losses(train_losses, val_losses):
+        """Plot training and validation losses."""
+        plt.plot(train_losses, label='Training Loss')
+        plt.plot(val_losses, label='Validation Loss')
+        plt.xlabel('Iteration')
+        plt.ylabel('Squared Error Loss')
+        plt.title('Training and Validation Losses')
+        plt.legend()
+        plt.show()
+
+    num_iteration_max = 100
+    train_losses = []
+    val_losses = []
+    best_model = None
+    best_val_acc = 0
+
+    for i in range(num_iteration_max):
+        print("Iteration: {}".format(i))
+        reconst_matrix = als(train_data, best_k_als, 0.01, i)
+        train_loss = squared_error_loss(train_data, reconst_matrix, reconst_matrix)
+        val_loss = squared_error_loss(val_data, reconst_matrix, reconst_matrix)
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        val_acc = sparse_matrix_evaluate(val_data, reconst_matrix)
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            best_model = reconst_matrix
+    plot_losses(train_losses, val_losses)
+    test_acc = sparse_matrix_evaluate(test_data, best_model)
+    print("Validation Accuracy: {}".format(test_acc))
 
 
     #####################################################################
