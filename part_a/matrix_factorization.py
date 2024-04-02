@@ -82,13 +82,12 @@ def update_u_z(train_data, lr, u, z):
     q = train_data["question_id"][i]
 
     # Compute the gradient of the loss function with respect to u_n and z_q.
-    grad_u = (c - np.dot(u[n], z[q])) * z[q]
-    grad_z = (c - np.dot(u[n], z[q])) * u[n]
+    predicted_rating = np.dot(u[n], z[q])
+    error = c - predicted_rating
 
     # Update u_n and z_q.
-    u[n] = u[n] + lr * grad_u
-    z[q] = z[q] + lr * grad_z
-
+    u[n] += lr * error * z[q]
+    z[q] += lr * error * u[n]
 
     #####################################################################
     #                       END OF YOUR CODE                            #
@@ -123,7 +122,7 @@ def als(train_data, k, lr, num_iteration):
     #####################################################################
     #                       END OF YOUR CODE                            #
     #####################################################################
-    return mat, u, z
+    return mat
 
 
 def main():
@@ -157,68 +156,86 @@ def main():
     # (ALS) Try out at least 5 different k and select the best k        #
     # using the validation set.                                         #
     #####################################################################
+    ini_lr = 0.05
+    ini_num_iteration = 80000
+    b_k = 0
+    b_lr = 0
+    b_num_iteration = 0
+    b_acc = 0
+    it = []
+    res1 = []
+    for i in range(1, 26, 5):
+        reconst_matrix = als(train_data, i, ini_lr, ini_num_iteration)
+        acc = sparse_matrix_evaluate(val_data, reconst_matrix)
+        if acc > b_acc:
+            b_acc = acc
+            b_k = i
+        it.append(i)
+        res1.append(acc)
+        print("k: {}".format(i))
+    plt.plot(it, res1, linestyle="dashed")
+    plt.title("Validation Accuracy vs K")
+    plt.xlabel("k-value")
+    plt.ylabel("Validation Accuracy(SGD)")
+    plt.savefig('Validation Accuracy vs K.jpg')
+    plt.show()
+    print("Best K-value SGD:", b_k)
+    als_mat = als(train_data, b_k, ini_lr, ini_num_iteration)
+    print("Validation Accuracy ALS for k = {}:".format(b_k), sparse_matrix_evaluate(val_data, als_mat, 0.5))
+    print("Test Accuracy ALS for k = {}:".format(b_k), sparse_matrix_evaluate(test_data, als_mat, 0.5))
 
-    best_k_als = 0
-    best_lr_als = 0
-    best_iteration_als = 0
+    for lr in np.arange(0.01,0.26, 0.05):
+        reconst_matrix = als(train_data, b_k, lr, ini_num_iteration)
+        acc = sparse_matrix_evaluate(val_data, reconst_matrix)
+        if acc > b_acc:
+            b_acc = acc
+            b_lr = round(float(lr), 2)
+        print("lr: {}".format(lr))
+    if b_lr == 0:
+        b_lr = ini_lr
 
-    best_acc_als = 0
-    for k in [1, 2, 5, 10, 20]:
-        for lr in [0.01, 0.1, 0.5, 1]:
-            for num_iteration in range(1, 1000, 20):
-                reconst_matrix, u, z = als(train_data, k, 0.01, 100)
-                # Evaluate the accuracy of the reconstructed matrix.
-                acc = sparse_matrix_evaluate(val_data, reconst_matrix)
-                if acc > best_acc_als:
-                    best_acc_als = acc
-                    best_k_als = k
-                    best_lr_als = lr
-                    best_iteration_als = num_iteration
-        k_reconst_matrix = als(train_data, k, best_lr_als, best_iteration_als)
-        print("Validation Accuracy: {} with k = {}".format(acc, k))
-    print("Best k: {},Best lr: {}, Best iteration: {} with accuracy: {}".format(best_k_als, best_lr_als, best_iteration_als, best_acc_als))
-    final_reconst_matrix, u, z = als(train_data, best_k_als, best_lr_als, best_iteration_als)
-    t_acc = sparse_matrix_evaluate(test_data, final_reconst_matrix)
-    print("Test Accuracy: {}".format(t_acc))
+    for num_iteration in range(1, 100001,10000):
+        reconst_matrix = als(train_data, b_k, b_lr, num_iteration)
+        acc = sparse_matrix_evaluate(val_data, reconst_matrix)
+        if acc > b_acc:
+            b_acc = acc
+            b_num_iteration = num_iteration
+        print("num_iteration: {}".format(num_iteration))
+    if b_num_iteration == 0:
+        b_num_iteration = ini_num_iteration
+
+    als_mat = als(train_data, b_k, b_lr, b_num_iteration)
+    print("Validation Accuracy ALS for k = {}, lr = {}, num_iteration = {}:".format(b_k, b_lr, b_num_iteration),
+          sparse_matrix_evaluate(val_data, als_mat, 0.5))
+    print("Test Accuracy ALS for k = {}, lr = {}, num_iteration = {}:".format(b_k, b_lr, b_num_iteration),
+          sparse_matrix_evaluate(test_data, als_mat, 0.5))
     #####################################################################
-    # With your chosen hyperparameters, plot the training and validation squared-error
-    # losses as a function of iteration. Also, report the validation accuracy and test accuracies
-    # for your final model.
-    def plot_losses(train_losses, val_losses, num_iteration):
-        """Plot training and validation losses."""
-        plt.plot(num_iteration,train_losses,label='Training Loss')
-        plt.plot(num_iteration,val_losses, label='Validation Loss')
-        plt.xlabel('Iteration')
-        plt.ylabel('Squared Error Loss')
-        plt.title('Training and Validation Losses')
-        plt.legend()
-        plt.savefig('losses vs iteration.png')
-        plt.show()
-
-    num_iteration = [1, 5, 10, 20, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-    train_losses = []
-    val_losses = []
-    best_model = None
-    best_val_acc = 0
-
-    for i in num_iteration:
-        print("Iteration: {}".format(i))
-        reconst_matrix , u, z = als(train_data, best_k_als, best_lr_als, i)
-
-        train_loss = squared_error_loss(train_data, u, z)
-        val_loss = squared_error_loss(val_data, u, z)
-
-
-        train_losses.append(train_loss)
-        val_losses.append(val_loss)
-        val_acc = sparse_matrix_evaluate(val_data, reconst_matrix)
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            best_model = reconst_matrix
-    plot_losses(train_losses, val_losses, num_iteration)
-    test_acc = sparse_matrix_evaluate(test_data, best_model)
-    print("Validation Accuracy: {}".format(test_acc))
-
+    #                       END OF YOUR CODE                            #
+    #####################################################################
+    u = np.random.uniform(low=0, high=1 / np.sqrt(b_k),
+                          size=(len(set(train_data["user_id"])), b_k))
+    z = np.random.uniform(low=0, high=1 / np.sqrt(b_k),
+                          size=(len(set(train_data["question_id"])), b_k))
+    line_t = []
+    line_v = []
+    iter = []
+    for iteration in range(1, 80000, 1000):
+        for _ in range(0, iteration):
+            u, z = update_u_z(train_data, b_lr, u, z)
+        line_t.append(squared_error_loss(train_data, u, z))
+        line_v.append(squared_error_loss(val_data, u, z))
+        iter.append(iteration)
+    # print(line_t)
+    # print(line_v)
+    plt.plot(iter, line_t, linestyle="dashed", label="Training accuracy")
+    plt.plot(iter, line_v, linestyle="solid", label="Validation accuracy")
+    plt.title("Losses vs Iteration (SGD)")
+    plt.xlabel("Iteration")
+    plt.ylabel("Squared Loss (SGD)")
+    plt.legend()
+    plt.ylim(0, 10000)
+    plt.savefig('losses vs iteration.jpg')
+    plt.show()
 
     #####################################################################
     #                       END OF YOUR CODE                            #

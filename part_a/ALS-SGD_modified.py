@@ -1,3 +1,21 @@
+# 改进ALS-SGD算法的措施可以从以下几个方面入手：
+#
+# 初始化策略：合适的初始化策略可以对模型的收敛速度和性能产生重要影响。可以尝试使用更智能的初始化方法，如随机初始化、均匀分布初始化或基于先验知识的初始化。
+#
+# 正则化：引入正则化项可以帮助控制模型的复杂度，防止过拟合，并提高泛化能力。通过在损失函数中加入正则化项，如L1正则化或L2正则化，可以有效地调节模型的复杂度。
+#
+# 学习率调度：动态调整学习率可以帮助模型在训练过程中更好地收敛到全局最优解。可以尝试使用学习率衰减策略，如指数衰减、余弦退火等，以及基于验证集性能的自适应学习率调整方法。
+#
+# 批量更新：与每个样本单独更新参数相比，批量更新参数可以提高计算效率并降低训练时间。可以考虑引入批量更新策略，将多个样本组成一个小批量进行参数更新。
+#
+# 并行化：通过并行化计算，可以加速模型的训练过程，特别是当处理大规模数据集时。可以利用并行计算框架或硬件加速器来实现算法的并行化。
+#
+# 模型评估：及时而准确地评估模型的性能是优化算法的关键。可以使用更全面的评估指标，如AUC、RMSE等，以更好地衡量模型的质量。
+#
+# 超参数调优：通过系统地调整超参数，如隐藏因子数量、学习率和迭代次数等，可以进一步提高模型的性能。可以尝试使用自动化的超参数优化技术，如网格搜索、随机搜索或贝叶斯优化。
+#
+# 通过采取这些改进措施，可以有效地提高ALS-SGD算法的性能和效率，从而更好地应用于实际问题中。
+
 from utils import *
 from scipy.linalg import sqrtm
 import matplotlib.pyplot as plt
@@ -49,12 +67,16 @@ def update_u_z(train_data, lr, u, z, Lambda):
     q = train_data["question_id"][i]
 
     # Compute the gradient of the loss function with respect to u_n and z_q.
-    grad_u = (c - np.dot(u[n], z[q])) * z[q] - Lambda * u[n]
-    grad_z = (c - np.dot(u[n], z[q])) * u[n] - Lambda * z[q]
+    predicted_rating = np.dot(u[n], z[q])
+    error = c - predicted_rating
 
     # Update u_n and z_q.
-    u[n] = u[n] + lr * grad_u
-    z[q] = z[q] + lr * grad_z
+    u[n] += lr * error * z[q]
+    z[q] += lr * error * u[n]
+
+    # Update u_n and z_q.
+    u[n] = u[n] + lr * error
+    z[q] = z[q] + lr * error
 
 
     #####################################################################
@@ -97,78 +119,11 @@ def main():
     train_data = load_train_csv("../data")
     val_data = load_valid_csv("../data")
     test_data = load_public_test_csv("../data")
-    #####################################################################                                                          #
-    # (ALS) Try out at least 5 different k and select the best k        #
-    # using the validation set.                                         #
-    #####################################################################
 
-    best_k_als = 0
-    best_lr_als = 0
-    best_iteration_als = 0
-    best_Lambda = 0
+    initial_k = 6
+    initial_lr = 0.06
+    initial_num_iteration = 80000
 
-    best_acc_als = 0
-    for k in [1, 2, 5, 10, 20]:
-        for lr in [0.01, 0.1, 0.5, 1]:
-            for num_iteration in range(1, 1000, 20):
-                for Lambda in [0.01, 0.1, 0.5, 1]:
-                    reconst_matrix, u, z = als(train_data, k, 0.01, 100, Lambda)
-                    # Evaluate the accuracy of the reconstructed matrix.
-                    acc = sparse_matrix_evaluate(val_data, reconst_matrix)
-                    if acc > best_acc_als:
-                        best_acc_als = acc
-                        best_k_als = k
-                        best_lr_als = lr
-                        best_iteration_als = num_iteration
-                        best_Lambda = Lambda
-        k_reconst_matrix = als(train_data, k, best_lr_als, best_iteration_als, best_Lambda)
-        print("Validation Accuracy: {} with k = {}".format(acc, k))
-    print("Best k: {},Best lr: {}, Best iteration: {} with accuracy: {}, Best Lambda: {}".format(best_k_als, best_lr_als, best_iteration_als, best_acc_als, Lambda))
-    final_reconst_matrix, u, z = als(train_data, best_k_als, best_lr_als, best_iteration_als, best_Lambda)
-    t_acc = sparse_matrix_evaluate(test_data, final_reconst_matrix)
-    print("Test Accuracy: {}".format(t_acc))
-    #####################################################################
-    # With your chosen hyperparameters, plot the training and validation squared-error
-    # losses as a function of iteration. Also, report the validation accuracy and test accuracies
-    # for your final model.
-    def plot_losses(train_losses, val_losses, num_iteration):
-        """Plot training and validation losses."""
-        plt.plot(num_iteration,train_losses,label='Training Loss')
-        plt.plot(num_iteration,val_losses, label='Validation Loss')
-        plt.xlabel('Iteration')
-        plt.ylabel('Squared Error Loss')
-        plt.title('Training and Validation Losses')
-        plt.legend()
-        plt.show()
-
-    num_iteration = [1, 5, 10, 20, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
-    train_losses = []
-    val_losses = []
-    best_model = None
-    best_val_acc = 0
-
-    for i in num_iteration:
-        print("Iteration: {}".format(i))
-        reconst_matrix , u, z = als(train_data, best_k_als, best_lr_als, i, best_Lambda)
-
-        train_loss = squared_error_loss(train_data, u, z)
-        val_loss = squared_error_loss(val_data, u, z)
-
-
-        train_losses.append(train_loss)
-        val_losses.append(val_loss)
-        val_acc = sparse_matrix_evaluate(val_data, reconst_matrix)
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            best_model = reconst_matrix
-    plot_losses(train_losses, val_losses, num_iteration)
-    test_acc = sparse_matrix_evaluate(test_data, best_model)
-    print("Validation Accuracy: {}".format(test_acc))
-
-
-    #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
 
 
 if __name__ == "__main__":
