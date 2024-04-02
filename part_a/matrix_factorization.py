@@ -165,7 +165,7 @@ def main():
     best_acc_als = 0
     for k in [1, 2, 5, 10, 20]:
         for lr in [0.01, 0.1, 0.5, 1]:
-            for num_iteration in range(1, 10000, 100):
+            for num_iteration in range(1, 1000, 20):
                 reconst_matrix, u, z = als(train_data, k, 0.01, 100)
                 # Evaluate the accuracy of the reconstructed matrix.
                 acc = sparse_matrix_evaluate(val_data, reconst_matrix)
@@ -195,7 +195,7 @@ def main():
         plt.savefig('losses vs iteration.png')
         plt.show()
 
-    num_iteration = [1, 5, 10, 20, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,10000]
+    num_iteration = [1, 5, 10, 20, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000]
     train_losses = []
     val_losses = []
     best_model = None
