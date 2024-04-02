@@ -17,7 +17,7 @@ Validation Accuracy: 0.6579170194750211 with k = 2\\
 Validation Accuracy: 0.659046006209427 with k = 5\\
 Validation Accuracy: 0.6586226361840248 with k = 10\\
 Validation Accuracy: 0.6539655659046006 with k = 20\\
-Best k: 5 with accuracy: 0.659046006209427\\
+Best k: 5 with test accuracy: 0.6635619531470506\\
 
 \subsubsection*{(b)}
 One limitation of SVD for this task is that it treats missing entries by using mean imputation. However,
@@ -30,14 +30,22 @@ of matrix reconstruction.
 \subsubsection*{(c & d)}
 After implementing the ALS with SGD, I ran the algorithm with k = 1, 2, 5, 10, 20 and learning rate = 0.01, number of iterations = 10.\\
 The best k was 20 with an accuracy of 0.7070279424216765.\\
-Validation Accuracy: 0.703076488851256 with k = 1\\
-Validation Accuracy: 0.7027942421676545 with k = 2\\
-Validation Accuracy: 0.7054755856618685 with k = 5\\
-Validation Accuracy: 0.7039232289020604 with k = 10\\
-Validation Accuracy: 0.7070279424216765 with k = 20\\
-Best k: 20 with accuracy: 0.7070279424216765\\
+Validation Accuracy: 0.70575783234547 with k = 1\\
+Validation Accuracy: 0.7054755856618685 with k = 20\\
+Validation Accuracy: 0.7046288456110641 with k = 50\\
+Validation Accuracy: 0.7067456957380751 with k = 100\\
+Validation Accuracy: 0.7061812023708721 with k = 200\\
+Best k: 100 with Test Accuracy: 0.7067456957380751\\
 \subsubsection*{(e)}
+%添加图片
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{losses vs iteration.png}
+\caption{Losses vs Iteration}
+\end{figure}
 
 
 
+\section*{B}
+\subsection*{3.Matrix Factorization}
 \end{document}
