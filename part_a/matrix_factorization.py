@@ -158,12 +158,18 @@ def main():
     #####################################################################
     ini_lr = 0.05
     ini_num_iteration = 80000
+    ini_k = 11
     b_k = 0
     b_lr = 0
     b_num_iteration = 0
     b_acc = 0
     it = []
     res1 = []
+
+    reconst_matrix = als(train_data, ini_k, ini_lr, ini_num_iteration)
+    b_acc = sparse_matrix_evaluate(val_data, reconst_matrix)
+    print("Validation Accuracy ALS for k = {}:".format(ini_k), b_acc)
+
     for i in range(1, 26, 5):
         reconst_matrix = als(train_data, i, ini_lr, ini_num_iteration)
         acc = sparse_matrix_evaluate(val_data, reconst_matrix)
@@ -172,11 +178,13 @@ def main():
             b_k = i
         it.append(i)
         res1.append(acc)
-        print("k: {}".format(i))
-    plt.plot(it, res1, linestyle="dashed")
+        print("k: {}, acc: {}".format(i, acc))
+    if b_k == 0:
+        b_k = ini_k
+    plt.plot(it, res1)
     plt.title("Validation Accuracy vs K")
     plt.xlabel("k-value")
-    plt.ylabel("Validation Accuracy(SGD)")
+    plt.ylabel("Validation Accuracy")
     plt.savefig('Validation Accuracy vs K.jpg')
     plt.show()
     print("Best K-value SGD:", b_k)
@@ -194,7 +202,7 @@ def main():
     if b_lr == 0:
         b_lr = ini_lr
 
-    for num_iteration in range(1, 100001,10000):
+    for num_iteration in range(1, 100001,1000):
         reconst_matrix = als(train_data, b_k, b_lr, num_iteration)
         acc = sparse_matrix_evaluate(val_data, reconst_matrix)
         if acc > b_acc:
@@ -227,15 +235,24 @@ def main():
         iter.append(iteration)
     # print(line_t)
     # print(line_v)
-    plt.plot(iter, line_t, linestyle="dashed", label="Training accuracy")
-    plt.plot(iter, line_v, linestyle="solid", label="Validation accuracy")
-    plt.title("Losses vs Iteration (SGD)")
+    plt.plot(iter, line_t, linestyle="solid", label="Training loss")
+    plt.title("Training Loss vs Iteration")
     plt.xlabel("Iteration")
-    plt.ylabel("Squared Loss (SGD)")
+    plt.ylabel("Squared Loss")
     plt.legend()
     plt.ylim(0, 10000)
     plt.savefig('losses vs iteration.jpg')
     plt.show()
+
+    plt.plot(iter, line_v, linestyle="dashed", label="Validation loss")
+    plt.title("Validation Loss vs Iteration")
+    plt.xlabel("Iteration")
+    plt.ylabel("Squared Loss")
+    plt.legend()
+    plt.ylim(0, 2000)
+    plt.savefig('validation loss vs iteration.jpg')
+    plt.show()
+
 
     #####################################################################
     #                       END OF YOUR CODE                            #
