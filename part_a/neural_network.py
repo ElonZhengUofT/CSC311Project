@@ -70,7 +70,8 @@ class AutoEncoder(nn.Module):
         # Implement the function as described in the docstring.             #
         # Use sigmoid activations for f and g.                              #
         #####################################################################
-        out = inputs
+        z1 = torch.sigmoid(self.g(inputs))
+        out = torch.sigmoid(self.h(z1))
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -109,11 +110,12 @@ def train(model, lr, lamb, train_data, zero_train_data, valid_data, num_epoch):
             optimizer.zero_grad()
             output = model(inputs)
 
-            # Mask the target to only compute the gradient of valid entries.
-            nan_mask = np.isnan(train_data[user_id].unsqueeze(0).numpy())
+            nan_mask = np.isnan(train_data[user_id].numpy())
             target[0][nan_mask] = output[0][nan_mask]
 
-            loss = torch.sum((output - target) ** 2.)
+            reg_loss = 0.
+
+            loss = torch.sum((output - target) ** 2.) + model.get_weight_norm()*lamb
             loss.backward()
 
             train_loss += loss.item()
@@ -157,25 +159,33 @@ def main():
     zero_train_matrix, train_matrix, valid_data, test_data = load_data()
 
     #####################################################################
-    # TODO:                                                             #
-    # Try out 5 different k and select the best k using the             #
-    # validation set.                                                   #
+    # Try out 5 different k and select the best k using the validation set.
     #####################################################################
-    # Set model hyperparameters.
-    k = None
-    model = None
+    best_k = None
+    best_valid_acc = 0.0
 
-    # Set optimization hyperparameters.
-    lr = None
-    num_epoch = None
-    lamb = None
+    for k_candidate in [10, 50, 100, 200, 500]:  # Try different values of k
+        # Initialize the model with current k
+        model = AutoEncoder(num_question=train_matrix.shape[1], k=k_candidate)
 
-    train(model, lr, lamb, train_matrix, zero_train_matrix,
-          valid_data, num_epoch)
+        # Set optimization hyperparameters
+        lr = 0.02
+        num_epoch = 40
+        lamb = 0.001
+
+        # Train the model
+        train(model, lr, lamb, train_matrix, zero_train_matrix, valid_data, num_epoch)
+
+        # Evaluate the model on validation set
+        valid_acc = evaluate(model, zero_train_matrix, valid_data)
+
+        # Update the best k and best validation accuracy
+        if valid_acc > best_valid_acc:
+            best_valid_acc = valid_acc
+            best_k = k_candidate
+
+    print("Best k:", best_k)
     #####################################################################
-    #                       END OF YOUR CODE                            #
-    #####################################################################
-
 
 if __name__ == "__main__":
     main()
